@@ -37,11 +37,22 @@ public class Game : MonoBehaviour {
     private bool isDragging = false;
     public GameObject bombPrefab;
 
+    public GameObject fever;
+
+    private float feverCount = 0.0f; //フィーバーゲージの値
+    private bool isfever = false; //フィーバー中かどうか
+    private float MINfever = 0; //ゲージが0の時のゲージのx座標
+    private float MAXfeverCOUNT = 25.0f; //フィーバーゲージの最大値
+
 
     // Use this for initialization
     void Start () {
         timerText = timer.GetComponent<Text>();
         scoreText = score.GetComponent<Text>();
+
+        MINfever = fever.GetComponent<RectTransform>().position.x; //ゲージの初期座標を取得
+        Debug.Log("MINfever:" + MINfever);
+
         StartCoroutine("CountDown");
         StartCoroutine("DropBalls", START_BALL_NUM);    //シーン開始時のボールの生成
     }
@@ -56,6 +67,7 @@ public class Game : MonoBehaviour {
         }
         timerText.text = "Start!";
         isPlaying = true;
+        StartCoroutine("Updatefever");  //ゲージを減らす関数を呼ぶ
         yield return new WaitForSeconds(1);
         StartCoroutine("StartTimer");
     }
@@ -94,6 +106,12 @@ public class Game : MonoBehaviour {
             OnClick();
         }
         if (isPlaying) {
+            //ゲージの位置を更新 C#では直接x座標の更新ができないのでposition要素を変数として取り出す必要がある。
+            Vector3 pos = fever.GetComponent<RectTransform>().position;
+            pos.x = MINfever + feverCount * MINfever / MAXfeverCOUNT;
+            Debug.Log("pos.x" + pos.x);
+            fever.GetComponent<RectTransform>().position = pos;
+
             if (Input.GetMouseButton(0) && firstBall == null) {
                 //ボールをドラッグしはじめたとき
                 OnDragStart();
@@ -110,6 +128,37 @@ public class Game : MonoBehaviour {
         scoreText.text = "Score:" + currentScore.ToString();
     }
 
+    private void Addfever(int num) {
+        if (!isfever) {
+            feverCount += num;
+            Debug.Log("feverCount:" + feverCount);
+            if (feverCount > MAXfeverCOUNT) {
+                Debug.Log("feverTime 突入");
+                feverCount = MAXfeverCOUNT;
+                isfever = true;
+                timeLimit += 5;//残り時間を5秒増やす
+            }
+        }
+    }
+
+    IEnumerator Updatefever() {
+        while (isPlaying) {
+            yield return new WaitForSeconds(0.05f);
+            if (!isfever) {
+                feverCount -= 1.0f / 80.0f;
+                if (feverCount < 0) feverCount = 0;
+            }
+            else {
+                //フィーバー中は素早く減らす
+                feverCount -= MAXfeverCOUNT / 8.0f / 20.0f;
+                if (feverCount < 0) {
+                    feverCount = 0;
+                    isfever = false;
+                }
+            }
+        }
+    }
+
     private void ClearRemovables(int mode) {
         if (removableBallList != null) {
             var length = removableBallList.Count;
@@ -123,7 +172,10 @@ public class Game : MonoBehaviour {
                 }
                 Destroy(removableBallList[i]);
             }
-            currentScore += ((CalculateBaseScore(length) + 50 * length));
+            int mult = 1;
+            if (isfever) mult = 3; //フィーバータイムに値を3倍に
+            currentScore += ((CalculateBaseScore(length) + 50 * length)) * mult;
+            Addfever(length); //フィーバーゲージの値を追加
             isDragging = false; //ドラッグおわり
             StartCoroutine("DropBalls", length);
         }
