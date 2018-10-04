@@ -67,6 +67,7 @@ public class Game : MonoBehaviour {
         }
         timerText.text = "Start!";
         isPlaying = true;
+        StartCoroutine("Updatefever");  //ゲージを減らす関数を呼ぶ
         yield return new WaitForSeconds(1);
         StartCoroutine("StartTimer");
     }
@@ -136,6 +137,24 @@ public class Game : MonoBehaviour {
                 feverCount = MAXfeverCOUNT;
                 isfever = true;
                 timeLimit += 5;//残り時間を5秒増やす
+            }
+        }
+    }
+
+    IEnumerator Updatefever() {
+        while (isPlaying) {
+            yield return new WaitForSeconds(0.05f);
+            if (!isfever) {
+                feverCount -= 1.0f / 80.0f;
+                if (feverCount < 0) feverCount = 0;
+            }
+            else {
+                //フィーバー中は素早く減らす
+                feverCount -= MAXfeverCOUNT / 8.0f / 20.0f;
+                if (feverCount < 0) {
+                    feverCount = 0;
+                    isfever = false;
+                }
             }
         }
     }
