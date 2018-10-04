@@ -10,7 +10,9 @@ public class Game : MonoBehaviour {
     private const float DROP_BALL_HEIGHT = 5;
     private const float DROP_BALL_WIDTH = 2.5f;
     private const string OBJNAME_BALL_HEAD = "Ball";
+    private const string OBJNAME_BOMB = "Bomb";
     private const float ADJACENT_RANGE = 1;
+    private const float BOMB_EFFECT_RANGE = 1.5f;
 
     //ボールの処理関係
     public GameObject ballPrefab;
@@ -31,6 +33,10 @@ public class Game : MonoBehaviour {
     public GameObject score;
     private Text scoreText;
     private int currentScore;
+    
+    private bool isDragging = false;
+    public GameObject bombPrefab;
+
 
     // Use this for initialization
     void Start () {
@@ -84,6 +90,9 @@ public class Game : MonoBehaviour {
 
     // Update is called once per frame
     void Update () {
+        if (Input.GetMouseButtonDown(0)) {
+            OnClick();
+        }
         if (isPlaying) {
             if (Input.GetMouseButton(0) && firstBall == null) {
                 //ボールをドラッグしはじめたとき
@@ -101,12 +110,32 @@ public class Game : MonoBehaviour {
         scoreText.text = "Score:" + currentScore.ToString();
     }
 
+    private void ClearRemovables(int mode) {
+        if (removableBallList != null) {
+            var length = removableBallList.Count;
+            for (var i = 0; i < length; i++) {
+                if (i == length - 1 && mode == 0 && length > 6) {
+                    //ボールが7個以上つながっているとき（ボムで消した時には更にボムが生成されないようにする）
+                    GameObject bomb = Instantiate(bombPrefab);
+                    GameObject obj = removableBallList[i];
+                    bomb.transform.position = obj.transform.position;
+                    bomb.name = OBJNAME_BOMB;
+                }
+                Destroy(removableBallList[i]);
+            }
+            currentScore += ((CalculateBaseScore(length) + 50 * length));
+            isDragging = false; //ドラッグおわり
+            StartCoroutine("DropBalls", length);
+        }
+    }
+
     private void OnDragStart() {
         Collider2D col = GetCurrentHitCollider();
         if (col != null) {
             GameObject colObj = col.gameObject;
             if (colObj.name.IndexOf(OBJNAME_BALL_HEAD) != -1) {
                 removableBallList = new List<GameObject>();
+                isDragging = true;
                 firstBall = colObj;
                 currentName = colObj.name;
                 PushToList(colObj);
@@ -126,15 +155,33 @@ public class Game : MonoBehaviour {
         return hit.collider;
     }
 
+    private void OnClick() {
+        Collider2D col = GetCurrentHitCollider();  // クリックしたオブジェクトを取得
+        if (col != null) {
+            GameObject colObj = col.gameObject;
+            if (colObj.name == OBJNAME_BOMB && isPlaying && !isDragging) {
+                //クリックしたオブジェクトがボム　かつ　プレイ中　かつ　ドラッグ中でない
+                ClearBomb(colObj);  //ボムクリック時の処理を実行
+            }
+        }
+    }
+
+    private void ClearBomb(GameObject colObj) {
+        GameObject[] balls = GameObject.FindGameObjectsWithTag(OBJNAME_BALL_HEAD);  //全てのボールを取得
+        removableBallList = new List<GameObject>(); //消去するボールのリストを初期化
+        foreach (var ball in balls) {
+            float dist = Vector2.Distance(colObj.transform.position, ball.transform.position); //ボムと各ボールの距離を計算
+            if (dist < BOMB_EFFECT_RANGE) removableBallList.Add(ball); //距離が一定値以下なら消去するリストに追加
+        }
+        ClearRemovables(1); //ボールを消す。ボムにより消したときは引数に1を入れる。
+        Destroy(colObj);
+    }
+
     private void OnDragEnd() {
         if (firstBall != null) {
             int length = removableBallList.Count;
             if (length >= 3) {
-                foreach (var removableBall in removableBallList) {
-                    Destroy(removableBall);
-                }
-                currentScore += (CalculateBaseScore(length) + 50 * length);
-                StartCoroutine("DropBalls", length);
+                ClearRemovables(0);
             } else {
                 foreach (var removableBall in removableBallList) {
                     ChangeColor(removableBall, 1.0f);

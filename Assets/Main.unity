@@ -801,6 +801,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: a8532fee832944244a7a01f3e655af22, type: 3}
   timer: {fileID: 42864525}
   score: {fileID: 448256688}
+  bombPrefab: {fileID: 1112844273078126, guid: 6d86cc3210956a14f813e8babf020ae2, type: 2}
 --- !u!4 &1377483484
 Transform:
   m_ObjectHideFlags: 0
